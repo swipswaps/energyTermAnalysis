@@ -1,0 +1,3 @@
+energy.C
+
+EXE = $(FOAM_APPBIN)/energy
