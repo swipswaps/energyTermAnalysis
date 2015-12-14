@@ -45,7 +45,7 @@ Description
 
 int main(int argc, char *argv[])
 {
-	Info << " Energy Terms. Version 0.1.0 " << endl; 
+	Info << " Energy Terms. Version 0.2.1 " << endl; 
 	Info << " --------------------------- " << endl;
     Foam::timeSelector::addOptions();
     Foam::argList::addOption
@@ -136,7 +136,7 @@ int main(int argc, char *argv[])
 			}
 		}
 		
-		Mean_To_Kinetic.write(); 
+		
 		
 		//volScalarField ConversionTerm((IOobject("Kinetic_To_Potential_dV",runTime.timeName(),mesh,IOobject::NO_READ,IOobject::AUTO_WRITE),
 			//						   mesh,
@@ -158,7 +158,9 @@ int main(int argc, char *argv[])
         forAll(ConversionTerm,cellI) { 
 			ConversionTerm[cellI] *= mesh.V()[cellI];
 		}
-        
+		
+		Mean_To_Kinetic.write(); 
+        ConversionTerm.write();
         
         //volScalarField ConversionTermdv(ConversionTerm * mesh.V());
         
