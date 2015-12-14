@@ -47,6 +47,6 @@
 
 # 4 "<command-line>" 2
 # 1 "files"
-energy.C
+energyTerms.C
 
-EXE = $(FOAM_APPBIN)/energy
+EXE = $(FOAM_APPBIN)/energyTerms

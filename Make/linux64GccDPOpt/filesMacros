@@ -1,1 +1,1 @@
-EXE = $(FOAM_APPBIN)/energy
+EXE = $(FOAM_APPBIN)/energyTerms
