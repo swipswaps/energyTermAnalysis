@@ -45,7 +45,7 @@ Description
 
 int main(int argc, char *argv[])
 {
-	Info << " Energy Terms. Version 0.2.1 " << endl; 
+	Info << " Energy Terms. Version 0.3.0 " << endl; 
 	Info << " --------------------------- " << endl;
     Foam::timeSelector::addOptions();
     Foam::argList::addOption
@@ -123,6 +123,15 @@ int main(int argc, char *argv[])
 		volTensorField gradUmeanNew(fvc::grad(UmeanNew));
 		
 		
+		volTensorField UgradVec1(AnisotropicDiffusion&fvc::grad(Uprime));
+		volTensorField UgradVec2(fvc::grad(Uprime));
+		
+		
+		volScalarField KineticDiffusion(IOobject("KineticDiffusion",runTime.timeName(),mesh,IOobject::NO_READ,IOobject::AUTO_WRITE),UgradVec1.component(0)*UgradVec2.component(0)+UgradVec1.component(4)*UgradVec2.component(4)+UgradVec1.component(8)*UgradVec2.component(8));
+		
+		//volScalarField DiffusionLoss( tr(*diag(fvc::grad(Uprime))));
+		
+		
 		volTensorField Mean_To_Kinetic(IOobject("Mean_To_Kinetic_dV",runTime.timeName(),mesh,IOobject::NO_READ,IOobject::AUTO_WRITE),
 									   mesh,
 									   dimensionedTensor("name", UprimeUprime.dimensions()*	gradUmeanNew.dimensions(), tensor::zero) );
@@ -161,6 +170,7 @@ int main(int argc, char *argv[])
 		
 		Mean_To_Kinetic.write(); 
         ConversionTerm.write();
+        KineticDiffusion.write();
         
         //volScalarField ConversionTermdv(ConversionTerm * mesh.V());
         
