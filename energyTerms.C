@@ -128,7 +128,7 @@ int main(int argc, char *argv[])
 		volTensorField UgradVec2(fvc::grad(Uprime));
 		
 		
-		volScalarField KineticDiffusion(IOobject("KineticDiffusion_dV",runTime.timeName(),mesh,IOobject::NO_READ,IOobject::AUTO_WRITE),UgradVec1.component(0)*UgradVec2.component(0)+UgradVec1.component(4)*UgradVec2.component(4)+UgradVec1.component(8)*UgradVec2.component(8));
+		volScalarField KineticDiffusion(IOobject("KineticEnergyDiffusion_dV",runTime.timeName(),mesh,IOobject::NO_READ,IOobject::AUTO_WRITE),UgradVec1.component(0)*UgradVec2.component(0)+UgradVec1.component(4)*UgradVec2.component(4)+UgradVec1.component(8)*UgradVec2.component(8));
 		
 		//volScalarField DiffusionLoss( tr(*diag(fvc::grad(Uprime))));
 		
