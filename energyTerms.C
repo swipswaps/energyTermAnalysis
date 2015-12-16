@@ -45,8 +45,6 @@ Description
 
 int main(int argc, char *argv[])
 {
-	Info << " Energy Terms. Version 0.3.0 " << endl; 
-	Info << " --------------------------- " << endl;
     Foam::timeSelector::addOptions();
     Foam::argList::addOption
     (
@@ -57,6 +55,9 @@ int main(int argc, char *argv[])
     #include "addDictOption.H"
 
     #include "setRootCase.H"
+	Info << " Energy Terms. Version 0.3.1 " << endl; 
+	Info << " --------------------------- " << endl;
+    
     #include "createTime.H"
     Foam::instantList timeDirs = Foam::timeSelector::select0(runTime, args);
     #include "createNamedMesh.H"
@@ -127,7 +128,7 @@ int main(int argc, char *argv[])
 		volTensorField UgradVec2(fvc::grad(Uprime));
 		
 		
-		volScalarField KineticDiffusion(IOobject("KineticDiffusion",runTime.timeName(),mesh,IOobject::NO_READ,IOobject::AUTO_WRITE),UgradVec1.component(0)*UgradVec2.component(0)+UgradVec1.component(4)*UgradVec2.component(4)+UgradVec1.component(8)*UgradVec2.component(8));
+		volScalarField KineticDiffusion(IOobject("KineticDiffusion_dV",runTime.timeName(),mesh,IOobject::NO_READ,IOobject::AUTO_WRITE),UgradVec1.component(0)*UgradVec2.component(0)+UgradVec1.component(4)*UgradVec2.component(4)+UgradVec1.component(8)*UgradVec2.component(8));
 		
 		//volScalarField DiffusionLoss( tr(*diag(fvc::grad(Uprime))));
 		
@@ -166,6 +167,7 @@ int main(int argc, char *argv[])
         // there is probably a metter way of doing it. 
         forAll(ConversionTerm,cellI) { 
 			ConversionTerm[cellI] *= mesh.V()[cellI];
+			KineticDiffusion[cellI] *= mesh.V()[cellI];
 		}
 		
 		Mean_To_Kinetic.write(); 
