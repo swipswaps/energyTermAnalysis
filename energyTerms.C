@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
     #include "addDictOption.H"
 
     #include "setRootCase.H"
-	Info << " Energy Terms. Version 0.3.1 " << endl; 
+	Info << " Energy Terms. Version 0.3.2 " << endl; 
 	Info << " --------------------------- " << endl;
     
     #include "createTime.H"
@@ -103,7 +103,7 @@ int main(int argc, char *argv[])
 		volScalarField p_rgh(IOobject("p_rgh",runTime.timeName(),mesh,IOobject::MUST_READ),mesh); 
 		
 		volVectorField Uprime = Utotal - UmeanNew; 
-		volScalarField Tprime = Ttotal - TmeanNew;
+		volScalarField Tprime = T      - TmeanNew;
 		
 		
 		// calculating phimean. 
@@ -136,21 +136,6 @@ int main(int argc, char *argv[])
 		volTensorField Mean_To_Kinetic(IOobject("Mean_To_Kinetic_dV",runTime.timeName(),mesh,IOobject::NO_READ,IOobject::AUTO_WRITE),
 									   mesh,
 									   dimensionedTensor("name", UprimeUprime.dimensions()*	gradUmeanNew.dimensions(), tensor::zero) );
-			
-		// component wise multlipication. 
-		forAll(Mean_To_Kinetic,cellI)
-        {
-			for (int i =0 ; i < 9 ; i++) {
-				Mean_To_Kinetic.internalField()[cellI].component(i) = UprimeUprime.internalField()[cellI].component(i)*gradUmeanNew.internalField()[cellI].component(i)*mesh.V()[cellI]; 
-				
-			}
-		}
-		
-		
-		
-		//volScalarField ConversionTerm((IOobject("Kinetic_To_Potential_dV",runTime.timeName(),mesh,IOobject::NO_READ,IOobject::AUTO_WRITE),
-			//						   mesh,
-				//					   dimensionedScalar("name", Uprime.dimensions()*Tprime.dimensions()*beta.dimensions()*g.dimensions(),pTraits<scalar>::zero) ));
 		
 		volScalarField ConversionTerm
         (
@@ -161,12 +146,21 @@ int main(int argc, char *argv[])
                 mesh,
                 IOobject::NO_READ
             ),
-            Uprime.component(2)*Tprime*g.component(2)*beta
+            -Uprime.component(2)*Tprime*g.component(2)*beta // remember that the g is with + sign. 
         );
         
         // there is probably a metter way of doing it. 
         forAll(ConversionTerm,cellI) { 
+			
+			for (int i =0 ; i < 9 ; i++) {
+				Mean_To_Kinetic.internalField()[cellI].component(i) = UprimeUprime.internalField()[cellI].component(i)*gradUmeanNew.internalField()[cellI].component(i)*mesh.V()[cellI]; 
+				
+			}
+			
+			// there is probably a metter way of doing it. 
 			ConversionTerm[cellI] *= mesh.V()[cellI];
+			
+			// there is probably a metter way of doing it. 
 			KineticDiffusion[cellI] *= mesh.V()[cellI];
 		}
 		
