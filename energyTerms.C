@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
     #include "addDictOption.H"
 
     #include "setRootCase.H"
-	Info << " Energy Terms. Version 0.3.3 g" << endl; 
+	Info << " Energy Terms. Version 0.3.3" << endl; 
 	Info << " --------------------------- " << endl;
     
     #include "createTime.H"
@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
 												 runTime.timeName(),mesh,IOobject::NO_READ,IOobject::AUTO_WRITE),
 												 UgradVec1&&UgradVec2);
 		
-		volScalarField V(IOobject("Vmesh",runTime.timeName(),mesh,IOobject::NO_READ,IOobject::AUTO_WRITE),mesh,dimensionedScalar("name", mesh.V().dimensions(), scalar(0)) );
+		//volScalarField V(IOobject("Vmesh",runTime.timeName(),mesh,IOobject::NO_READ,IOobject::AUTO_WRITE),mesh,dimensionedScalar("name", mesh.V().dimensions(), scalar(0)) );
 		
 		volTensorField Mean_To_Kinetic(IOobject("Mean_To_Kinetic_dV",runTime.timeName(),mesh,IOobject::NO_READ,IOobject::AUTO_WRITE),
 									   mesh,
@@ -167,14 +167,9 @@ int main(int argc, char *argv[])
 			// there is probably a metter way of doing it. 
 			KineticDiffusion[cellI] *= mesh.V()[cellI];
 			
-			V[cellI] = mesh.V()[cellI];
+			//V[cellI] = mesh.V()[cellI];
 		}
 		
-		Info << KineticDiffusion[5000] << " " << endl;
-		Info << UgradVec1[5000] << endl;
-		Info << UgradVec2[5000] << endl;
-		Info << mesh.V()[5000] << endl;
-		Info << mesh.C()[5000] << endl; 
 		
 		
 		//V.write();
@@ -185,9 +180,6 @@ int main(int argc, char *argv[])
         ConversionTerm.write();
         KineticDiffusion.write();
         
-        //volScalarField ConversionTermdv(ConversionTerm * mesh.V());
-        
-        //ConversionTerm = (ConversionTerm*mesh.V())();
 		
 		
 		/*
