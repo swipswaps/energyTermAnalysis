@@ -158,7 +158,6 @@ int main(int argc, char *argv[])
 			
 			for (int i =0 ; i < 9 ; i++) {
 				Mean_To_Kinetic.internalField()[cellI].component(i) = UprimeUprime.internalField()[cellI].component(i)*gradUmeanNew.internalField()[cellI].component(i)*mesh.V()[cellI]; 
-				
 			}
 			
 			// there is probably a metter way of doing it. 
