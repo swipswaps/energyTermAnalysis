@@ -43,7 +43,11 @@ Description
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
+/*
+ *  0.4.0 - 
+ *        Added kinetic energy of the perturbation.  
+ * 
+ * */
 
 int main(int argc, char *argv[])
 {
@@ -57,7 +61,7 @@ int main(int argc, char *argv[])
     #include "addDictOption.H"
 
     #include "setRootCase.H"
-	Info << " Energy Terms. Version 0.3.3" << endl; 
+	Info << " Energy Terms. Version 0.4.0" << endl; 
 	Info << " --------------------------- " << endl;
     
     #include "createTime.H"
@@ -151,6 +155,20 @@ int main(int argc, char *argv[])
             ),
             -Uprime.component(2)*Tprime*g.component(2)*beta // remember that the g is with + sign. 
         );
+
+        volScalarField PrimeKineticEnergy
+        (
+            IOobject
+            (
+                "PrimeKineticEnergy_dV",
+                runTime.timeName(),
+                mesh,
+                IOobject::NO_READ
+            ),
+            0.5*magSqr(Uprime)
+        );
+        
+        
         
         // there is probably a metter way of doing it. 
         // !!! Note that we multiply the inner cells with dV and so the values on the boundaries are incorect. !!!
@@ -166,15 +184,13 @@ int main(int argc, char *argv[])
 			// there is probably a metter way of doing it. 
 			KineticDiffusion[cellI] *= mesh.V()[cellI];
 			
+			PrimeKineticEnergy[cellI] *= mesh.V()[cellI];
+			
 			//V[cellI] = mesh.V()[cellI];
 		}
 		
 		
-		
-		//V.write();
-		//Uprime.write();
-		//UgradVec1.write();
-		//UgradVec2.write();
+		PrimeKineticEnergy.write();
 		Mean_To_Kinetic.write(); 
         ConversionTerm.write();
         KineticDiffusion.write();
