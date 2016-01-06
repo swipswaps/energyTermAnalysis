@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
     #include "addDictOption.H"
 
     #include "setRootCase.H"
-	Info << " Energy Terms. Version 0.4.0" << endl; 
+	Info << " Energy Terms. Version 0.4.1" << endl; 
 	Info << " --------------------------- " << endl;
     
     #include "createTime.H"
