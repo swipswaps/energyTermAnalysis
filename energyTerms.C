@@ -25,7 +25,7 @@ Application
     enstrophy
 
 Description
-    Calculates and writes the enstrophy of the velocity field U.
+    Calculates and writes the energy terms.
     
     ** Note that we multiply the inner cells with dV and so the values on the boundaries are incorect. 
 
@@ -86,7 +86,7 @@ tensor IntegrateTensor(const volTensorField& field) {
 		reduce(sfield,sumOp<tensor>());
 		return sfield;
 }
-//mean_energy_Advection_Zone += IntegrateVector( (U&fvc::div(phi,U))*zoneSelector);
+//energy_Advection_Zone += IntegrateVector( (U&fvc::div(phi,U))*zoneSelector);
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 /*
@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
     #include "createNamedMesh.H"
 
 
-    #include "readGravitationalAcceleration.H"
+    //#include "readGravitationalAcceleration.H"
     IOdictionary transportProperties
     (
 		IOobject
@@ -133,8 +133,10 @@ int main(int argc, char *argv[])
 		)
      );
 
-    dimensionedScalar beta(transportProperties.lookup("beta"));
     dimensionedScalar nu(transportProperties.lookup("nu"));
+    /*
+    dimensionedScalar beta(transportProperties.lookup("beta"));
+
         
 
     label cellzoneID  =  mesh.cellZones().findZoneID("Work");
@@ -161,21 +163,24 @@ int main(int argc, char *argv[])
     }
     scalar ZoneVolume = sum(zoneSelector).value(); 
     Info << "The zone volume is " << ZoneVolume << endl; 
-
+*/
 // =======================================================================
+    IOobject meanExists("U_mean",runTime.timeName(),mesh,IOobject::READ_IF_PRESENT,IOobject::AUTO_WRITE);
+	
+    bool calculateMean = true; 
+    if (meanExists.typeHeaderOk<volVectorField>()) { 
+	     calculateMean = false; 		
+    }
+
     Foam::surfaceScalarField phi_mean(IOobject("phi_mean",runTime.timeName(),mesh,IOobject::READ_IF_PRESENT,IOobject::AUTO_WRITE),
 						mesh,dimensionedScalar("tmp",dimLength*dimLength*dimLength/dimTime,0)); 
 
     Foam::surfaceScalarField phi_tag(IOobject("phi_tag",runTime.timeName(),mesh,IOobject::READ_IF_PRESENT,IOobject::AUTO_WRITE),
 						mesh,dimensionedScalar("tmp",dimLength*dimLength*dimLength/dimTime,0)); 
 
-    volVectorField U_mean(IOobject("U_mean",runTime.timeName(),mesh,IOobject::NO_READ), mesh,dimensionedVector("a",dimLength/dimTime,vector::zero));
-    volScalarField p_mean(IOobject("p_mean",runTime.timeName(),mesh,IOobject::NO_READ), mesh, dimensionedScalar("tmp",dimLength*dimLength/(dimTime*dimTime),0));
-    volVectorField dt_U_mean(IOobject("dt_U_mean",runTime.timeName(),mesh,IOobject::NO_READ), mesh,dimensionedVector("a",dimLength/dimTime,vector::zero));
-    volTensorField mean_to_perb(IOobject("p_mean",runTime.timeName(),mesh,IOobject::NO_READ), mesh, dimensionedTensor("tmp",dimLength*dimLength/(dimTime*dimTime*dimTime),tensor::zero));
-
-    volTensorField reynoldsU(IOobject("reynoldsU",runTime.timeName(),mesh,IOobject::NO_READ), mesh,dimensionedTensor("tmp",dimLength*dimLength/(dimTime*dimTime),tensor::zero));
-
+    volVectorField U_mean(IOobject("U_mean",runTime.timeName(),mesh,IOobject::READ_IF_PRESENT), mesh,dimensionedVector("a",dimLength/dimTime,vector::zero));
+    volScalarField p_mean(IOobject("p_mean",runTime.timeName(),mesh,IOobject::READ_IF_PRESENT), mesh, dimensionedScalar("tmp",dimLength*dimLength/(dimTime*dimTime),0));
+    volVectorField dt_U_mean(IOobject("dt_U_mean",runTime.timeName(),mesh,IOobject::READ_IF_PRESENT), mesh,dimensionedVector("a",dimLength/dimTime,vector::zero));
 // =======================================================================
 
     scalar DT = timeDirs[timeDirs.size()-1].value() - timeDirs[0].value();
@@ -184,69 +189,65 @@ int main(int argc, char *argv[])
 // ============================ Calculate the mean =======================
     Info << " Calculating Mean" << endl;
 
-    dimensionedScalar mean_energy("mm", dimLength*dimLength/(dimTime*dimTime*dimTime),0);
-    dimensionedScalar mean_energy_DT("mm", dimLength*dimLength/(dimTime*dimTime*dimTime),0);
-    dimensionedScalar mean_energy_Advection("mm", dimLength*dimLength/(dimTime*dimTime*dimTime),0);
-    dimensionedScalar mean_energy_Diffusion("mm", dimLength*dimLength/(dimTime*dimTime*dimTime),0);
-    dimensionedScalar mean_energy_PressureConvection("mm", dimLength*dimLength/(dimTime*dimTime*dimTime),0);
-    dimensionedScalar mean_energy_T("mm", dimLength*dimLength/(dimTime*dimTime*dimTime),0);
 
-    forAll(timeDirs, timeI)
-    {
-	Info << timeDirs[timeI] << endl;
-        runTime.setTime(timeDirs[timeI], timeI);
+    if (calculateMean) { 
+	    forAll(timeDirs, timeI)
+	    {
+		Info << timeDirs[timeI] << endl;
+		runTime.setTime(timeDirs[timeI], timeI);
 
-	surfaceScalarField phi(IOobject("phi",runTime.timeName(),mesh,IOobject::MUST_READ,IOobject::NO_WRITE),mesh);
-	volVectorField U(IOobject("U",runTime.timeName(),mesh,IOobject::MUST_READ), mesh);
- 	volScalarField p(IOobject("p",runTime.timeName(),mesh,IOobject::MUST_READ), mesh);
+		surfaceScalarField phi(IOobject("phi",runTime.timeName(),mesh,IOobject::MUST_READ,IOobject::NO_WRITE),mesh);
+		volVectorField U(IOobject("U",runTime.timeName(),mesh,IOobject::MUST_READ), mesh);
+	 	volScalarField p(IOobject("p",runTime.timeName(),mesh,IOobject::MUST_READ), mesh);
 
-	phi_mean += phi;
-	U_mean   += U; 
-	p_mean   += p;
+		phi_mean += phi;
+		U_mean   += U; 
+		p_mean   += p;
 
-	mean_energy_Advection		+= (U&fvc::div(phi,U))->weightedAverage(mesh.V()); 
-	mean_energy_Diffusion		+= (U&fvc::laplacian(nu,U))->weightedAverage(mesh.V());
-	mean_energy_PressureConvection	+= (U&fvc::grad(p))->weightedAverage(mesh.V());
+		if (timeI == 0) { 		
+			dt_U_mean = -U;
+		}
 
-	if (timeI > 0) { 
+		if (timeI == timeDirs.size()-1) {
+               		dt_U_mean += U;
+        	}
+	    }
+	Info  << "end loop" << endl;
 
-		word prevTime= timeDirs[timeI-1].name();
-		dimensionedScalar dt("dt",dimTime,timeDirs[timeI].value() - timeDirs[timeI-1].value()); 
-		volVectorField Uold(IOobject("U",prevTime,mesh,IOobject::MUST_READ), mesh);
-		mean_energy 			+= (U&((U-Uold)/dt+fvc::div(phi,U)-fvc::laplacian(nu,U)+fvc::grad(p)))->weightedAverage(mesh.V());
-		mean_energy_DT			+= (U&(U-Uold)/dt)->weightedAverage(mesh.V());
-	
-	} else { 
-		dt_U_mean = -U;
-	}
+	    phi_mean  /= timeDirs.size();
+	    U_mean    /= timeDirs.size();
+	    p_mean    /= timeDirs.size();
+	    dt_U_mean /= DeltaT;
 
-	if (timeI == timeDirs.size()-1) {
-               dt_U_mean += U;
-        }
-
+	Info  << "writing " << endl;
+            runTime.setTime(timeDirs[0], 0);
+	    phi_mean.write();
+	    U_mean.write();
+	    p_mean.write();
+	    dt_U_mean.write();
+	Info  << "end write" << endl;
     }
 
-    phi_mean  /= timeDirs.size();
-    U_mean    /= timeDirs.size();
-    p_mean    /= timeDirs.size();
-    dt_U_mean /= DeltaT;
-
-    mean_energy/= timeDirs.size();
-    mean_energy_DT/= timeDirs.size();
-    mean_energy_Advection/= timeDirs.size();
-    mean_energy_Diffusion/= timeDirs.size();
-    mean_energy_PressureConvection/= timeDirs.size();
+	//
 
 // =======================================================================
+    dimensionedScalar energy("energy", dimLength*dimLength/(dimTime*dimTime*dimTime),0);
+    dimensionedScalar energy_DT("energy_DT", dimLength*dimLength/(dimTime*dimTime*dimTime),0);
+    dimensionedScalar energy_Advection("energy_Advection", dimLength*dimLength/(dimTime*dimTime*dimTime),0);
+    dimensionedScalar energy_Diffusion("energy_Diffusion", dimLength*dimLength/(dimTime*dimTime*dimTime),0);
+    dimensionedScalar energy_PressureConvection("energy_PressureConvection", dimLength*dimLength/(dimTime*dimTime*dimTime),0);
+    //dimensionedScalar energy_T("mm", dimLength*dimLength/(dimTime*dimTime*dimTime),0);
 
+    
+    volTensorField mean_to_perb(IOobject("mean_to_perb",runTime.timeName(),mesh,IOobject::READ_IF_PRESENT), mesh, dimensionedTensor("tmp",dimLength*dimLength/(dimTime*dimTime*dimTime),tensor::zero));
+    volTensorField reynoldsU(IOobject("reynoldsU",runTime.timeName(),mesh,IOobject::NO_READ), mesh,dimensionedTensor("tmp",dimLength*dimLength/(dimTime*dimTime),tensor::zero));
 
-
+    dimensionedTensor energy_perb_convection("energy_perb_convection",dimLength*dimLength/(dimTime*dimTime*dimTime),tensor::zero);
+    dimensionedTensor energy_total_convection("energy_total_convection",dimLength*dimLength/(dimTime*dimTime*dimTime),tensor::zero);   
 // =======================================================================
     forAll(timeDirs, timeI)
     {
 
-
-		
         runTime.setTime(timeDirs[timeI], timeI);
         Foam::Info<< "Time = " << runTime.timeName() << Foam::endl;
 
@@ -259,92 +260,46 @@ int main(int argc, char *argv[])
 	volVectorField tagU 	= U - U_mean;
 	reynoldsU += tagU*tagU;
 
+	volScalarField totalEk = 0.5*(U & U); 
+	volScalarField perbEk = 0.5*(tagU & tagU); 
+
 	mean_to_perb += (reynoldsU & fvc::grad(U_mean) ); 
-//	--------------------------------------------------------------------	
-//	meanPerturbation_energy_DT		  += (U&U_tag_dt_diff)->weightedAverage(mesh.V());;
-//	meanPerturbation_energy_PressureConvection += (fvc::div(phi,0.5*(U&U)))->weightedAverage(mesh.V());
-//	meanPerturbation_energy_Advection	  += (U&fvc::div(phi,U))->weightedAverage(mesh.V());
-//	----------------------------------------------------- Prints
-/*	Info << "Continuity" << endl; 
-	Info << "----------" << endl;
-	Info << fvc::div(phi)->weightedAverage(mesh.V()) << endl;
 
-	Info << endl;
-	Info << "Momentum balance" << endl; 
-	Info << "-------All domain---------" << endl;
+	energy_Advection		+= (U&fvc::div(phi,U))->weightedAverage(mesh.V()); 
+	energy_Diffusion		+= (U&fvc::laplacian(nu,U))->weightedAverage(mesh.V());
+	energy_PressureConvection	+= (U&fvc::grad(p))->weightedAverage(mesh.V());
 
-	Info << "DT " 	     << ((U-Uold)/dt)->weightedAverage(mesh.V()) << endl;
-	Info << "DT diff "   << ((U-Uold)/dt)->weightedAverage(mesh.V()) - U_mean_dt.weightedAverage(mesh.V()) << endl;
-	Info << "Advection " << fvc::div(phi,U)->weightedAverage(mesh.V()) << endl;
-	Info << "Diffusion " << fvc::laplacian(nu,U)->weightedAverage(mesh.V()) << endl;
-	Info << "Pressure  " << fvc::grad(p)->weightedAverage(mesh.V()) << endl;
-	Info << "Total " << ((U-Uold)/dt+fvc::div(phi,U)-fvc::laplacian(nu,U)+fvc::grad(p))->weightedAverage(mesh.V()) << endl;
+	if (timeI > 0) { 
+
+		word prevTime= timeDirs[timeI-1].name();
+		dimensionedScalar dt("dt",dimTime,timeDirs[timeI].value() - timeDirs[timeI-1].value()); 
+		volVectorField Uold(IOobject("U",prevTime,mesh,IOobject::MUST_READ), mesh);
+		energy 			+= (U&((U-Uold)/dt+fvc::div(phi,U)-fvc::laplacian(nu,U)+fvc::grad(p)))->weightedAverage(mesh.V());
+		energy_DT			+= (U&(U-Uold)/dt)->weightedAverage(mesh.V());
+	
+	} 
 
 
-	Info << endl;
-	Info << "-------Zone---------" << endl;
-	Info << "DT " 	     << IntegrateVector( ((U-Uold)/dt)*zoneSelector) << endl;
-	Info << "Advection " << IntegrateVector( fvc::div(phi,U)*zoneSelector) << endl;
-	Info << "Diffusion " << IntegrateVector( fvc::laplacian(nu,U)*zoneSelector)<< endl;
-	Info << "Pressure  " << IntegrateVector( fvc::grad(p)*zoneSelector) << endl;
-	Info << "Total "     << IntegrateVector( ((U-Uold)/dt+fvc::div(phi,U)-fvc::laplacian(nu,U)+fvc::grad(p))*zoneSelector) << endl;
-
-	Info << endl << " -=-=-=-=-=-=-=-=-=-= Perturbation "  << endl;
-	Info << "-------All domain---------" << endl;
-	Info << "DT " << U_tag_dt_diff.weightedAverage(mesh.V()) << endl;
-	Info << "div(U,tagU) " << U_tag_convection.weightedAverage(mesh.V()) << endl;
-	Info << "div(Umean,tagU) " << U_convection_Utag.weightedAverage(mesh.V()) << endl;
-	Info << "-overline(div(tagU,tagU)) " << fvc::div(reynoldsU)->weightedAverage(mesh.V()) << endl;
-	Info << "Advection " << (U_tag_convection + U_convection_Utag - fvc::div(reynoldsU) )->weightedAverage(mesh.V()) << endl;
-	Info << "Diffusion  " << U_tag_laplacian.weightedAverage(mesh.V()) << endl;
-	Info << "Pressure " << p_tag_grad.weightedAverage(mesh.V()) << endl;
-	Info << "Total " << (U_tag_dt_diff+U_tag_convection+U_convection_Utag-fvc::div(reynoldsU)-U_tag_laplacian+p_tag_grad)->weightedAverage(mesh.V()) << endl;
-	Info << endl;
-	Info << "-------Zone---------" << endl;
-	Info << "DT " 				<< IntegrateVector(U_tag_dt_diff*zoneSelector) << endl;
-	Info << "div(U,tagU) " 			<< IntegrateVector(U_tag_convection*zoneSelector) << endl;
-	Info << "div(Umean,tagU) " 		<< IntegrateVector(U_convection_Utag*zoneSelector) << endl;
-	Info << "-overline(div(tagU,tagU)) " 	<< IntegrateVector(fvc::div(reynoldsU)*zoneSelector) << endl;
-	Info << "Advection " 			<< IntegrateVector((U_tag_convection + U_convection_Utag - fvc::div(reynoldsU) )*zoneSelector) << endl;
-	Info << "Diffusion  " 			<< IntegrateVector(U_tag_laplacian*zoneSelector) << endl;
-	Info << "Pressure " 			<< IntegrateVector(p_tag_grad*zoneSelector) << endl;
-	Info << "Total " 			<< IntegrateVector((U_tag_dt_diff+U_tag_convection+U_convection_Utag-fvc::div(reynoldsU)-U_tag_laplacian+p_tag_grad)*zoneSelector) << endl;
-
-	Info <<endl;
-	Info << "Energy balance" << endl; 
-	Info << "-------All domain---------" << endl;
-	Info << "DT " 	     << (U&(U-Uold)/dt)->weightedAverage(mesh.V()) << endl;
-	Info << "Advection " << (U&fvc::div(phi,U))->weightedAverage(mesh.V()) << endl;
-	Info << "Diffusion " << (U&fvc::laplacian(nu,U))->weightedAverage(mesh.V()) << endl;
-	Info << "Pressure  " << (U&fvc::grad(p))->weightedAverage(mesh.V()) << endl;
-	Info << "Pressure  2" << (fvc::div(phi,p))->weightedAverage(mesh.V()) << endl;
-	Info << "Total " << (U&((U-Uold)/dt+fvc::div(phi,U)-fvc::laplacian(nu,U)+fvc::grad(p)))->weightedAverage(mesh.V()) << endl;
+	energy_perb_convection += (fvc::grad(U*perbEk))->weightedAverage(mesh.V());
+	energy_total_convection += (fvc::grad(U*totalEk))->weightedAverage(mesh.V());
 
 
-	Info << "-------Zone---------" << endl;
-	Info << "DT " 	     << IntegrateVector( (U&(U-Uold)/dt)*zoneSelector) << endl;
-	Info << "Advection " << IntegrateVector( (U&fvc::div(phi,U))*zoneSelector) << endl;
-	Info << "Diffusion " << IntegrateVector( (U&fvc::laplacian(nu,U))*zoneSelector)<< endl;
-	Info << "Pressure  " << IntegrateVector( (U&fvc::grad(p))*zoneSelector) << endl;
-	Info << "Total "     << IntegrateVector( (U&((U-Uold)/dt+fvc::div(phi,U)-fvc::laplacian(nu,U)+fvc::grad(p)))*zoneSelector) << endl;
+  }
+
+  reynoldsU /= timeDirs.size();
+  mean_to_perb /= timeDirs.size();
+
+  energy/= timeDirs.size();
+  energy_DT/= timeDirs.size();
+  energy_Advection/= timeDirs.size();
+  energy_Diffusion/= timeDirs.size();
+  energy_PressureConvection/= timeDirs.size();
+
+  energy_perb_convection /= timeDirs.size();
+  energy_total_convection/= timeDirs.size();
 
 
-	Info << endl << " -=-=-=-=-=-=-=-=-=-= Perturbation "  << endl;
-	Info << "-------All domain---------" << endl;
-	Info << "DT " << (U&U_tag_dt_diff)->weightedAverage(mesh.V()) << endl;
-	Info << "div(U,tagU) " << (U&U_tag_convection)->weightedAverage(mesh.V()) << endl;
-	Info << "div(Umean,tagU) " << (U&U_convection_Utag)->weightedAverage(mesh.V()) << endl;
-	Info << "-overline(div(tagU,tagU)) " << (U&fvc::div(reynoldsU))->weightedAverage(mesh.V()) << endl;
-	Info << "Advection " << (U&(U_tag_convection + U_convection_Utag - fvc::div(reynoldsU) ))->weightedAverage(mesh.V()) << endl;
-	Info << "Diffusion  " << (U&U_tag_laplacian)->weightedAverage(mesh.V()) << endl;
-	Info << "Pressure " << (U&p_tag_grad)->weightedAverage(mesh.V()) << endl;
-	Info << "Total " << (U&(U_tag_dt_diff+U_tag_convection+U_convection_Utag-fvc::div(reynoldsU)-U_tag_laplacian+p_tag_grad))->weightedAverage(mesh.V()) << endl;
-
-	Info <<endl << endl;
-*/
-	}
-    	reynoldsU /= timeDirs.size();
-	mean_to_perb /= timeDirs.size();
+  volScalarField barEk = 0.5*(U_mean & U_mean); 
 
 	Info << " =========================== Mean balances ================= " << endl; 
 	Info << "\t\t\t\tMomentum balance" << endl; 
@@ -362,16 +317,67 @@ int main(int argc, char *argv[])
 	Info << "\t-------All domain---------" << endl;
 	Info << "=== Total " << endl;
 
-	Info << "DT " 		<< mean_energy_DT << endl;
-	Info << "Advection " 	<< mean_energy_Advection << endl;
-	Info << "Diffusion " 	<< mean_energy_Diffusion << endl;
-	Info << "Pressure " 	<< mean_energy_PressureConvection << endl;
-	Info << "Total energy " << mean_energy << endl << endl;
+	Info << "DT " 		<< energy_DT << endl;
+	Info << "Advection " 	<< energy_Advection << endl;
+	Info << "Diffusion " 	<< energy_Diffusion << endl;
+	Info << "Pressure " 	<< energy_PressureConvection << endl;
+	Info << "Total energy " << energy << endl << endl;
+
+	Info << " ------------- Now checking the mean balances - termwise -------------- " << endl; 
+
+	dimensionedScalar energy_div_mean  	= (U_mean & (fvc::div(phi_mean,U_mean)+fvc::div(reynoldsU) ))->weightedAverage(mesh.V());
+	// Now we should split the (U_mean & (fvc::div(phi_mean,U_mean)+fvc::div(reynoldsU) )) to the dx,dy and dz terms. 
+
+	dimensionedTensor  energy_mean_convection = fvc::grad(U_mean*barEk)->weightedAverage(mesh.V());
+
 	
+	Info << "  == Energy convection == " << endl; 
+	Info << energy_Advection << endl;
+	Info << "Total energy convection " << endl; 
+	Info << "\t\txx: " << energy_total_convection.component(0) << endl;  
+	Info << "\t\tyy: " << energy_total_convection.component(4) << endl;
+	Info << "\t\tzz: " << energy_total_convection.component(8) << endl;
+	Info << "Form I: Total = div(U* (barEk+ reynolds)) + div(U*perbEk)" << endl;
+	Info << "\tMean part: div(U* (barEk+ reynolds)) " << endl; 
+	Info << "\t\tdiv(U*barEk): " << endl; 
+	Info << "\t\txx: " << energy_mean_convection.component(0) << endl;  
+	Info << "\t\tyy: " << energy_mean_convection.component(4) << endl;
+	Info << "\t\tzz: " << energy_mean_convection.component(8) << endl;
+
+	Info << "\t\tdiv(U*reynolds) " << endl; 
+	Info << "\t\t\t" << fvc::div(U_mean & reynoldsU)->weightedAverage(mesh.V()) << endl; 
+	Info << "\tPerb part: div(U*E'k)" << endl; 
+	Info << "\t\txx: " << energy_perb_convection.component(0) << endl;  
+	Info << "\t\tyy: " << energy_perb_convection.component(4) << endl;
+	Info << "\t\tzz: " << energy_perb_convection.component(8) << endl;
+
+	Info << endl << endl;
+
+	Info << "reynolds and flux form" << endl;
+	Info << "\treynolds*grad(U) + U*div(reynolds) = div(U*reynolds) " << endl;
+	Info << "\t\t" << (U_mean & fvc::div(reynoldsU))->weightedAverage(mesh.V()) << endl;
+	Info << "\t\t" << (reynoldsU&&fvc::grad(U_mean))->weightedAverage(mesh.V()) << " || " << mean_to_perb.weightedAverage(mesh.V())<< endl;
+	Info << "\t\t" << fvc::div(U_mean & reynoldsU)->weightedAverage(mesh.V()) << endl;
+
+	Info << "mean energy convection" << endl;
+	Info << "\t\t" << (U_mean & fvc::div(phi_mean,U_mean))->weightedAverage(mesh.V()) << endl;
+	Info << "\t\t" << (U_mean & fvc::div(U_mean*U_mean))->weightedAverage(mesh.V()) << endl;
+
+	Info << "\t\t" << (fvc::div(0.5*U_mean*(U_mean & U_mean)))->weightedAverage(mesh.V()) << " || " << (fvc::div(U_mean*barEk))->weightedAverage(mesh.V()) << endl;
+	Info << "\t\t" << (fvc::grad(U_mean*barEk))->weightedAverage(mesh.V()) << endl;
+
+
+
 	Info << "=== Mean " << endl;
 	
 	dimensionedScalar energy_dt_mean 		= (U_mean & dt_U_mean)->weightedAverage(mesh.V());
-	dimensionedScalar energy_div_mean  	= (U_mean & (fvc::div(phi_mean,U_mean)+fvc::div(reynoldsU) ))->weightedAverage(mesh.V());
+	//dimensionedScalar energy_div_mean  	= (U_mean & (fvc::div(phi_mean,U_mean)+fvc::div(reynoldsU) ))->weightedAverage(mesh.V());
+	// Now we should split the (U_mean & (fvc::div(phi_mean,U_mean)+fvc::div(reynoldsU) )) to the dx,dy and dz terms. 
+	
+
+
+
+	//
 	dimensionedScalar energy_diffusion_mean 	= (U_mean & fvc::laplacian(nu,U_mean))->weightedAverage(mesh.V());
 	dimensionedScalar energy_pressure_mean 	= (U_mean & fvc::grad(p_mean))->weightedAverage(mesh.V());
 	dimensionedScalar energy_mean		= (U_mean & ( dt_U_mean + fvc::div(phi_mean,U_mean)+fvc::div(reynoldsU) - fvc::laplacian(nu,U_mean) + fvc::grad(p_mean) ) )->weightedAverage(mesh.V());
@@ -380,14 +386,14 @@ int main(int argc, char *argv[])
 	Info << "Advection " << energy_div_mean << endl;
 	Info << "Diffusion " << energy_diffusion_mean << endl;
 	Info << "Pressure  " << energy_pressure_mean << endl;
-	Info << "Total "     << energy_mean << endl;
+	Info << "Total "     << energy_mean << endl << endl;
 
 	Info << "=== Perturbation " << endl;
-	Info << "DT " 	     << mean_energy_DT	      - energy_dt_mean << endl;
-	Info << "Advection " << mean_energy_Advection - energy_div_mean << endl;
-	Info << "Diffusion " << mean_energy_Diffusion - energy_diffusion_mean << endl;
-	Info << "Pressure  " << mean_energy_PressureConvection - energy_pressure_mean << endl;
-	Info << "Total "     << mean_energy - energy_mean << endl;
+	Info << "DT " 	     << energy_DT	      - energy_dt_mean << endl;
+	Info << "Advection " << energy_Advection - energy_div_mean << endl;
+	Info << "Diffusion " << energy_Diffusion - energy_diffusion_mean << endl;
+	Info << "Pressure  " << energy_PressureConvection - energy_pressure_mean << endl;
+	Info << "Total "     << energy - energy_mean << endl;
 	
 	
 
@@ -395,11 +401,11 @@ int main(int argc, char *argv[])
 
 /*
 	Info << " Final perturbation statistics " << endl;
-	Info << "Mean energy u'du'/dt " << 	mean_energy_DT/timeDirs.size()-(U_mean&dt_U_mean)->weightedAverage(mesh.V())  << endl;
-	Info << "Mean energy advection+[transger to perb] " <<	mean_energy_Advection/timeDirs.size()-(U_mean&(fvc::div(phi_mean,U_mean) ))->weightedAverage(mesh.V()) << endl; //+
+	Info << "Mean energy u'du'/dt " << 	energy_DT/timeDirs.size()-(U_mean&dt_U_mean)->weightedAverage(mesh.V())  << endl;
+	Info << "Mean energy advection+[transger to perb] " <<	energy_Advection/timeDirs.size()-(U_mean&(fvc::div(phi_mean,U_mean) ))->weightedAverage(mesh.V()) << endl; //+
 	Info << "Mean energy tranfer to perb" << 	mean_to_perb.weightedAverage(mesh.V()) << endl;
-	Info << "Mean energy diffusion " <<	mean_energy_Diffusion/timeDirs.size()-(U_mean&fvc::laplacian(nu,U_mean))->weightedAverage(mesh.V()) << endl;
-	Info << "Mean energy pressure " <<	mean_energy_PressureConvection/timeDirs.size()- (U_mean&fvc::grad(p_mean))->weightedAverage(mesh.V())<< endl;
+	Info << "Mean energy diffusion " <<	energy_Diffusion/timeDirs.size()-(U_mean&fvc::laplacian(nu,U_mean))->weightedAverage(mesh.V()) << endl;
+	Info << "Mean energy pressure " <<	energy_PressureConvection/timeDirs.size()- (U_mean&fvc::grad(p_mean))->weightedAverage(mesh.V())<< endl;
 */
 	
 	return 0;  
@@ -582,6 +588,88 @@ Advection mm [0 2 -3 0 0 0 0] -6.86761 || mm [0 2 -3 0 0 0 0] -6.54538
 Diffusion mm [0 2 -3 0 0 0 0] -0.0103222
 Pressure mm [0 2 -3 0 0 0 0] 0.122995 || mm [0 2 -3 0 0 0 0] 1.6023e-15
 
+//	--------------------------------------------------------------------	
+//	meanPerturbation_energy_DT		  += (U&U_tag_dt_diff)->weightedAverage(mesh.V());;
+//	meanPerturbation_energy_PressureConvection += (fvc::div(phi,0.5*(U&U)))->weightedAverage(mesh.V());
+//	meanPerturbation_energy_Advection	  += (U&fvc::div(phi,U))->weightedAverage(mesh.V());
+//	----------------------------------------------------- Prints
+	Info << "Continuity" << endl; 
+	Info << "----------" << endl;
+	Info << fvc::div(phi)->weightedAverage(mesh.V()) << endl;
 
+	Info << endl;
+	Info << "Momentum balance" << endl; 
+	Info << "-------All domain---------" << endl;
+
+	Info << "DT " 	     << ((U-Uold)/dt)->weightedAverage(mesh.V()) << endl;
+	Info << "DT diff "   << ((U-Uold)/dt)->weightedAverage(mesh.V()) - U_mean_dt.weightedAverage(mesh.V()) << endl;
+	Info << "Advection " << fvc::div(phi,U)->weightedAverage(mesh.V()) << endl;
+	Info << "Diffusion " << fvc::laplacian(nu,U)->weightedAverage(mesh.V()) << endl;
+	Info << "Pressure  " << fvc::grad(p)->weightedAverage(mesh.V()) << endl;
+	Info << "Total " << ((U-Uold)/dt+fvc::div(phi,U)-fvc::laplacian(nu,U)+fvc::grad(p))->weightedAverage(mesh.V()) << endl;
+
+
+	Info << endl;
+	Info << "-------Zone---------" << endl;
+	Info << "DT " 	     << IntegrateVector( ((U-Uold)/dt)*zoneSelector) << endl;
+	Info << "Advection " << IntegrateVector( fvc::div(phi,U)*zoneSelector) << endl;
+	Info << "Diffusion " << IntegrateVector( fvc::laplacian(nu,U)*zoneSelector)<< endl;
+	Info << "Pressure  " << IntegrateVector( fvc::grad(p)*zoneSelector) << endl;
+	Info << "Total "     << IntegrateVector( ((U-Uold)/dt+fvc::div(phi,U)-fvc::laplacian(nu,U)+fvc::grad(p))*zoneSelector) << endl;
+
+	Info << endl << " -=-=-=-=-=-=-=-=-=-= Perturbation "  << endl;
+	Info << "-------All domain---------" << endl;
+	Info << "DT " << U_tag_dt_diff.weightedAverage(mesh.V()) << endl;
+	Info << "div(U,tagU) " << U_tag_convection.weightedAverage(mesh.V()) << endl;
+	Info << "div(Umean,tagU) " << U_convection_Utag.weightedAverage(mesh.V()) << endl;
+	Info << "-overline(div(tagU,tagU)) " << fvc::div(reynoldsU)->weightedAverage(mesh.V()) << endl;
+	Info << "Advection " << (U_tag_convection + U_convection_Utag - fvc::div(reynoldsU) )->weightedAverage(mesh.V()) << endl;
+	Info << "Diffusion  " << U_tag_laplacian.weightedAverage(mesh.V()) << endl;
+	Info << "Pressure " << p_tag_grad.weightedAverage(mesh.V()) << endl;
+	Info << "Total " << (U_tag_dt_diff+U_tag_convection+U_convection_Utag-fvc::div(reynoldsU)-U_tag_laplacian+p_tag_grad)->weightedAverage(mesh.V()) << endl;
+	Info << endl;
+	Info << "-------Zone---------" << endl;
+	Info << "DT " 				<< IntegrateVector(U_tag_dt_diff*zoneSelector) << endl;
+	Info << "div(U,tagU) " 			<< IntegrateVector(U_tag_convection*zoneSelector) << endl;
+	Info << "div(Umean,tagU) " 		<< IntegrateVector(U_convection_Utag*zoneSelector) << endl;
+	Info << "-overline(div(tagU,tagU)) " 	<< IntegrateVector(fvc::div(reynoldsU)*zoneSelector) << endl;
+	Info << "Advection " 			<< IntegrateVector((U_tag_convection + U_convection_Utag - fvc::div(reynoldsU) )*zoneSelector) << endl;
+	Info << "Diffusion  " 			<< IntegrateVector(U_tag_laplacian*zoneSelector) << endl;
+	Info << "Pressure " 			<< IntegrateVector(p_tag_grad*zoneSelector) << endl;
+	Info << "Total " 			<< IntegrateVector((U_tag_dt_diff+U_tag_convection+U_convection_Utag-fvc::div(reynoldsU)-U_tag_laplacian+p_tag_grad)*zoneSelector) << endl;
+
+	Info <<endl;
+	Info << "Energy balance" << endl; 
+	Info << "-------All domain---------" << endl;
+	Info << "DT " 	     << (U&(U-Uold)/dt)->weightedAverage(mesh.V()) << endl;
+	Info << "Advection " << (U&fvc::div(phi,U))->weightedAverage(mesh.V()) << endl;
+	Info << "Diffusion " << (U&fvc::laplacian(nu,U))->weightedAverage(mesh.V()) << endl;
+	Info << "Pressure  " << (U&fvc::grad(p))->weightedAverage(mesh.V()) << endl;
+	Info << "Pressure  2" << (fvc::div(phi,p))->weightedAverage(mesh.V()) << endl;
+	Info << "Total " << (U&((U-Uold)/dt+fvc::div(phi,U)-fvc::laplacian(nu,U)+fvc::grad(p)))->weightedAverage(mesh.V()) << endl;
+
+
+	Info << "-------Zone---------" << endl;
+	Info << "DT " 	     << IntegrateVector( (U&(U-Uold)/dt)*zoneSelector) << endl;
+	Info << "Advection " << IntegrateVector( (U&fvc::div(phi,U))*zoneSelector) << endl;
+	Info << "Diffusion " << IntegrateVector( (U&fvc::laplacian(nu,U))*zoneSelector)<< endl;
+	Info << "Pressure  " << IntegrateVector( (U&fvc::grad(p))*zoneSelector) << endl;
+	Info << "Total "     << IntegrateVector( (U&((U-Uold)/dt+fvc::div(phi,U)-fvc::laplacian(nu,U)+fvc::grad(p)))*zoneSelector) << endl;
+
+
+	Info << endl << " -=-=-=-=-=-=-=-=-=-= Perturbation "  << endl;
+	Info << "-------All domain---------" << endl;
+	Info << "DT " << (U&U_tag_dt_diff)->weightedAverage(mesh.V()) << endl;
+	Info << "div(U,tagU) " << (U&U_tag_convection)->weightedAverage(mesh.V()) << endl;
+	Info << "div(Umean,tagU) " << (U&U_convection_Utag)->weightedAverage(mesh.V()) << endl;
+	Info << "-overline(div(tagU,tagU)) " << (U&fvc::div(reynoldsU))->weightedAverage(mesh.V()) << endl;
+	Info << "Advection " << (U&(U_tag_convection + U_convection_Utag - fvc::div(reynoldsU) ))->weightedAverage(mesh.V()) << endl;
+	Info << "Diffusion  " << (U&U_tag_laplacian)->weightedAverage(mesh.V()) << endl;
+	Info << "Pressure " << (U&p_tag_grad)->weightedAverage(mesh.V()) << endl;
+	Info << "Total " << (U&(U_tag_dt_diff+U_tag_convection+U_convection_Utag-fvc::div(reynoldsU)-U_tag_laplacian+p_tag_grad))->weightedAverage(mesh.V()) << endl;
+
+	Info <<endl << endl;
 */
+
+
 								 
