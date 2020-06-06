@@ -22,7 +22,7 @@ public:
 	  calculateTermBalances(fvMesh& imesh,Time& irunTime, word zoneName);
 
 	
-
+	void printAll();
 
 /****************************************
  *   	Protected functions		*
@@ -37,14 +37,16 @@ protected:
 
 	// ---------------------------- terms -----------------------------	
 	void printTemporal(); 
-
 	void printConvection();
 	void printDiffusion();  
-	void printDiffusion(); 
-
+	void printKUsqr(); 
+	void printConversion();
 	void printPotential();
 	void printNudging();
-	void printPressure();        
+	void printPressure();     
+
+	void printTensorTerms(const volTensorField& field);   
+	void printTensorTerms(const tmp<volTensorField>& field);
 
 	// ---------------------------- Integration -----------------------------
 		scalar Integrate(const volScalarField & field) { 

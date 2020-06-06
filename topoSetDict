@@ -1,0 +1,110 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2.2.2                                 |
+|   \\  /    A nd           | Web:      www.OpenFOAM.org                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      topoSetDict;
+}
+
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+
+actions 
+(
+    {
+        name    AllEntranceSet;
+        type    faceSet;
+        action  new;
+        source  boxToFace;
+        sourceInfo
+        {
+            box   (-0.1 1.15 0) (1.35 1.35 1);
+            option  all;
+        }
+    }
+
+
+    {
+        name    JetSet;
+        type    faceSet;
+        action  new;
+        source  patchToFace;
+        sourceInfo
+        {
+            name "start";
+        }
+    }
+
+    {
+        name    JetSet;
+        type    faceSet;
+        action  subset;
+        source  faceToFace;
+        sourceInfo
+        {
+            set AllEntranceSet;
+        }
+    }
+
+
+    {
+	name  SpongeLayer; 
+	type  cellSet; 
+	action new; 
+	source boxToCell; 
+	sourceInfo
+	{
+		box (2 -0.5 0) (2.5 1.5 1);
+	}
+    }
+    {
+	name  SpongeLayer; 
+	type  cellSet; 
+	action add; 
+	source boxToCell; 
+	sourceInfo
+	{
+		box (0 -0.5 0) (2 0 1);
+	}
+    }
+    {
+	name  SpongeLayer; 
+	type  cellSet; 
+	action add; 
+	source boxToCell; 
+	sourceInfo
+	{
+		box (0 1 0) (2 1.5 1);
+	}
+    }
+    {
+        name  work;
+        type  cellSet;
+        action new;
+        source boxToCell;
+        sourceInfo
+        {
+                box (0 0 0) (2 1 1);
+        }
+    }
+
+    {
+        name  Work;
+        type  cellZoneSet;
+        action new;
+	source  setToCellZone;
+	sourceInfo 
+	{
+		set work;
+	}
+   }
+
+);

@@ -1,3 +1,4 @@
+energyTerms.C
 calculateTermBalances.C
 
-EXE = $(FOAM_APPBIN)/energyTerms
+EXE = $(FOAM_APPBIN)/energyTermsComputation
