@@ -86,7 +86,7 @@ tensor IntegrateTensor(const volTensorField& field) {
 		reduce(sfield,sumOp<tensor>());
 		return sfield;
 }
-//energy_Advection_Zone += IntegrateVector( (U&fvc::div(phi,U))*zoneSelector);
+
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 /*
